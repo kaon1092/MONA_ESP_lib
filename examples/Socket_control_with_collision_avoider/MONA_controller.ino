@@ -81,6 +81,13 @@ void setup() {
 	delay(500);
 	Set_LED(1,0,0,0);
 	Set_LED(2,0,0,0);
+
+  //회피 초기설정
+  //Initialize the MonaV2 robot
+	Mona_ESP_init();
+  //Initialize variables
+  state=0;
+  old_state=0;
 }
 
 
@@ -121,17 +128,6 @@ void loop() {
     Serial.println("Client disconnected");
   }
 }
-
-
-void setup()
-{
-	//Initialize the MonaV2 robot
-	Mona_ESP_init();
-  //Initialize variables
-  state=0;
-  old_state=0;
-}
-
 
 void loop(){
   //--------------Motors------------------------
