@@ -21,10 +21,29 @@
 #include <Wire.h>
 #include <WiFi.h>
 
+/*
+  Simple_collision_avoider.ino - Usage of the libraries Example
+  Using the Mona_ESP library in C style.
+  Created by Bart Garcia, December 2020.
+  bart.garcia.nathan@gmail.com
+  Released into the public domain.
+*/
+
+//Variables
+bool IR_values[5] = {false, false, false, false, false};
+//Threshold value used to determine a detection on the IR sensors.
+//Reduce the value for a earlier detection, increase it if there
+//false detections.
+int threshold = 35;
+//State Machine Variable
+// 0 -move forward , 1 - forward obstacle , 2 - right proximity , 3 - left proximity
+int state, old_state;
+
+
 //Enter the SSID and password of the WiFi you are going
 //to use to communicate through
-const char* ssid = "NetworkForMonaESP";
-const char* password =  "WeLoveMONA123";
+const char* ssid = "SSID";
+const char* password =  "PW";
 //A server is started using port 80
 WiFiServer wifiServer(80);
 
@@ -103,28 +122,6 @@ void loop() {
   }
 }
 
-
-/*
-  Simple_collision_avoider.ino - Usage of the libraries Example
-  Using the Mona_ESP library in C style.
-  Created by Bart Garcia, December 2020.
-  bart.garcia.nathan@gmail.com
-  Released into the public domain.
-*/
-//Include the Mona_ESP library
-#include <Wire.h>
-#include "Mona_ESP_lib.h"
-
-
-//Variables
-bool IR_values[5] = {false, false, false, false, false};
-//Threshold value used to determine a detection on the IR sensors.
-//Reduce the value for a earlier detection, increase it if there
-//false detections.
-int threshold = 35;
-//State Machine Variable
-// 0 -move forward , 1 - forward obstacle , 2 - right proximity , 3 - left proximity
-int state, old_state;
 
 void setup()
 {
