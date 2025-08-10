@@ -91,7 +91,10 @@ void setup() {
 }
 
 void loop() {
-  socket_control()
+  socket_control();
+  read_IR_sensor();
+  update_state();
+  avoid_moving();
 }
 
 void socket_control() {
@@ -132,12 +135,13 @@ void socket_control() {
   }
 }
 
-void loop(){
+void avoid_moving(){
   //--------------Motors------------------------
   //Set motors movement based on the state machine value.
   if(state == 0){
     // Start moving Forward
-    Motors_forward(150);
+    //Motors_forward(150);
+    return
   }
   if(state == 1){
     //Spin to the left
@@ -151,7 +155,9 @@ void loop(){
     //Spin to the right
     Motors_spin_right(100);
   }
+}
 
+void read_IR_sensor(){
   //--------------IR sensors------------------------
   //Decide future state:
 	//Read IR values to determine maze walls
@@ -160,7 +166,9 @@ void loop(){
   IR_values[2] = Detect_object(3,threshold);
   IR_values[3] = Detect_object(4,threshold);
   IR_values[4] = Detect_object(5,threshold);
+}
 
+void update_state(){
 	//--------------State Machine------------------------
 	//Use the retrieved IR values to set state
 	//Check for frontal wall, which has priority
