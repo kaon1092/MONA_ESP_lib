@@ -90,15 +90,18 @@ void setup() {
   old_state=0;
 }
 
-
 void loop() {
+  socket_control()
+}
+
+void socket_control() {
   //Create a client object
   WiFiClient client = wifiServer.available();
   //Wait for a client to connect to the socket open in the Mona_ESP
   if (client) {
-    while (client.connected()) {
+    if (client.connected()) {
       //Read data sent by the client
-      while (client.available()>0) {
+      if (client.available()>0) {
         char c = client.read();
         //Decode and execute the obtained message
         if(c=='F'){
