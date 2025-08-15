@@ -34,11 +34,10 @@ bool IR_values[5] = {false, false, false, false, false};
 //Threshold value used to determine a detection on the IR sensors.
 //Reduce the value for a earlier detection, increase it if there
 //false detections.
-int threshold = 35;
+int threshold = 50;
 //State Machine Variable
 // 0 -move forward , 1 - forward obstacle , 2 - right proximity , 3 - left proximity
-int state, old_state;
-
+int state=0, old_state=0;
 
 //Enter the SSID and password of the WiFi you are going
 //to use to communicate through
@@ -46,6 +45,18 @@ const char* ssid = "SSID";
 const char* password =  "PW";
 //A server is started using port 80
 WiFiServer wifiServer(80);
+
+//Socket 통신 유지 관련 전역 변수
+WiFiClient activeClient;         
+char pendingCmd = 0;             // 읽어둔 마지막 명령 저장
+unsigned long lastClientRX = 0; 
+
+// 함수 선언
+void read_IR_sensor();
+void update_state();
+void avoid_moving();
+void socket_read_nonblocking();
+void socket_control(char c);
 
 void setup() {
   //Initialize the MonaV2 robot
@@ -69,6 +80,8 @@ void setup() {
   Serial.println(WiFi.localIP());
   //Start the server as a host
   wifiServer.begin();
+  wifiServer.setNoDelay(true);   // 작은 패킷 즉시 전송
+
 	//Blink Leds in green to show end of booting/connecting
 	Set_LED(1,0,20,0);
 	Set_LED(2,0,20,0);
@@ -88,72 +101,100 @@ void setup() {
   //Initialize variables
   state=0;
   old_state=0;
+
+  pendingCmd = 0;
+  lastClientRX = millis();
 }
 
 void loop() {
-  socket_control();
+  // TCP 세션 유지 위해 keyboard 명령어 항상 읽기 수행 (회피 중에도 수행함)
+  socket_read_nonblocking();
+
+  // 센서/상태 갱신
   read_IR_sensor();
   update_state();
-  avoid_moving();
+
+  bool obs = (state != 0);
+  static bool was_obs = false;
+
+  if (obs) {
+    // 장애물 O: 회피만 수행 (키 실행은 보류)
+    avoid_moving();
+  } else {
+    // 회피 이후 1회 정지
+    if (was_obs) {
+      Motors_stop();
+    }
+    // 장애물 X : 저장된 키를 실행 (socket_read_nonblocking에서 저장된 값)
+    if (pendingCmd) {
+      socket_control(pendingCmd);
+      pendingCmd = 0;   // 소진
+    }
+  }
+
+  was_obs = obs;
+  delay(10);
 }
 
 void socket_control() {
-  //Create a client object
-  WiFiClient client = wifiServer.available();
-  //Wait for a client to connect to the socket open in the Mona_ESP
-  if (client) {
-    if (client.connected()) {
-      //Read data sent by the client
-      if (client.available()>0) {
-        char c = client.read();
-        //Decode and execute the obtained message
-        if(c=='F'){
-          Motors_forward(150);
-          delay(1000);
-          Motors_stop();
-        }
-        if(c=='B'){
-          Motors_backward(150);
-          delay(1000);
-          Motors_stop();
-        }
-        if(c=='R'){
-          Motors_spin_right(150);
-          delay(500);
-          Motors_stop();
-        }
-        if(c=='L'){
-          Motors_spin_left(150);
-          delay(500);
-          Motors_stop();
-        }
+  switch (c) {
+    case 'F': Motors_forward(150); break;
+    case 'B': Motors_backward(150); break;
+    case 'R': Motors_spin_right(150); break;
+    case 'L': Motors_spin_left(150); break;
+    case 'S': default: Motors_stop(); break;
+  }
+}
+
+// 소켓 읽기만 수행 -> 통신 연결 유지
+void socket_read_nonblocking() {
+  // 연결 미존재 or 끊겼으면 통신 accept
+  if (!activeClient || !activeClient.connected()) {
+    activeClient = wifiServer.available();
+    if (activeClient) {
+      activeClient.setNoDelay(true);
+      lastClientRX = millis();
+    }
+  }
+
+  // 연결 존재 시 수신 버퍼 비우기(마지막 명령만 저장)
+  if (activeClient && activeClient.connected()) {
+    while (activeClient.available() > 0) {
+      char c = activeClient.read();
+      if (c=='F' || c=='B' || c=='L' || c=='R' || c=='S') {
+        pendingCmd = c;
+        lastClientRX = millis();
       }
     }
-    //Client disconnects after sending the data.
-    client.stop();
-    Serial.println("Client disconnected");
   }
 }
 
 void avoid_moving(){
   //--------------Motors------------------------
   //Set motors movement based on the state machine value.
-  if(state == 0){
-    // Start moving Forward
-    //Motors_forward(150);
-    return
-  }
-  if(state == 1){
-    //Spin to the left
-    Motors_spin_left(100);
-  }
-    if(state == 2){
-    //Spin to the left
-    Motors_spin_left(100);
-  }
-    if(state == 3){
-    //Spin to the right
-    Motors_spin_right(100);
+  static unsigned long turn_until = 0;
+  unsigned long now = millis();
+
+  if (now >= turn_until) {
+    if(state == 0){
+      // Start moving Forward
+      //Motors_forward(150);
+      Motors_stop();
+      return;
+    }
+    else if(state == 1){
+      //Spin to the left
+      Motors_spin_left(100);
+    }
+    else if(state == 2){
+      //Spin to the left
+      Motors_spin_left(100);
+    }
+    else if(state == 3){
+      //Spin to the right
+      Motors_spin_right(100);
+    }
+    turn_until = now +250;
   }
 }
 
