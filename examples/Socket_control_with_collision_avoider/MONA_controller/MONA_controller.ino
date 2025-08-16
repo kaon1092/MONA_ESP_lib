@@ -21,14 +21,6 @@
 #include <Wire.h>
 #include <WiFi.h>
 
-/*
-  Simple_collision_avoider.ino - Usage of the libraries Example
-  Using the Mona_ESP library in C style.
-  Created by Bart Garcia, December 2020.
-  bart.garcia.nathan@gmail.com
-  Released into the public domain.
-*/
-
 //Variables
 bool IR_values[5] = {false, false, false, false, false};
 //Threshold value used to determine a detection on the IR sensors.
@@ -41,8 +33,8 @@ int state=0, old_state=0;
 
 //Enter the SSID and password of the WiFi you are going
 //to use to communicate through
-const char* ssid = "SSID";
-const char* password =  "PW";
+const char* ssid = "NetworkForMonaESP";
+const char* password =  "WeLoveMONA123";
 //A server is started using port 80
 WiFiServer wifiServer(80);
 
@@ -96,8 +88,6 @@ void setup() {
 	Set_LED(2,0,0,0);
 
   //회피 초기설정
-  //Initialize the MonaV2 robot
-	Mona_ESP_init();
   //Initialize variables
   state=0;
   old_state=0;
@@ -136,7 +126,7 @@ void loop() {
   delay(10);
 }
 
-void socket_control() {
+void socket_control(char c) {
   switch (c) {
     case 'F': Motors_forward(150); break;
     case 'B': Motors_backward(150); break;
@@ -153,7 +143,6 @@ void socket_read_nonblocking() {
     activeClient = wifiServer.available();
     if (activeClient) {
       activeClient.setNoDelay(true);
-      lastClientRX = millis();
     }
   }
 
@@ -163,7 +152,6 @@ void socket_read_nonblocking() {
       char c = activeClient.read();
       if (c=='F' || c=='B' || c=='L' || c=='R' || c=='S') {
         pendingCmd = c;
-        lastClientRX = millis();
       }
     }
   }

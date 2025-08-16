@@ -1,4 +1,4 @@
-# #Control MONA ESP from a terminal using socketes over the network
+#Control MONA ESP from a terminal using socketes over the network
 #
 #Created by Bart Garcia, January 2021.
 #bart.garcia.nathan@gmail.com
@@ -8,7 +8,7 @@ import curses
 #Create the socket object
 sock = socket.socket()
 #Modify the next line, and add the IP of your MONA ESP
-host = "192.168.0.6" #MONA ESP IP in local network
+host = "192.168.0.10" #MONA ESP IP in local network
 port = 80             #Server Port
 #Connect to host
 sock.connect((host, port))
