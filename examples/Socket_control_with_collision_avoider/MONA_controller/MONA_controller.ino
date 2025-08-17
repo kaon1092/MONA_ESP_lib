@@ -127,12 +127,28 @@ void loop() {
 }
 
 void socket_control(char c) {
-  switch (c) {
-    case 'F': Motors_forward(150); break;
-    case 'B': Motors_backward(150); break;
-    case 'R': Motors_spin_right(150); break;
-    case 'L': Motors_spin_left(150); break;
-    case 'S': default: Motors_stop(); break;
+  if(c=='F'){
+    Motors_forward(150);
+    delay(1000);
+    Motors_stop();
+  }
+  else if(c=='B'){
+    Motors_backward(150);
+    delay(1000);
+    Motors_stop();
+  }
+  else if(c=='R'){
+    Motors_spin_right(150);
+    delay(500);
+    Motors_stop();
+  }
+  else if(c=='L'){
+    Motors_spin_left(150);
+    delay(500);
+    Motors_stop();
+  }
+  else {
+    Motors_stop();
   }
 }
 
