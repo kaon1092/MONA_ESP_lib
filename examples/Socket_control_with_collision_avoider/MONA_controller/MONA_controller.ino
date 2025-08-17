@@ -139,7 +139,7 @@ void socket_control(char c) {
 // 소켓 읽기만 수행 -> 통신 연결 유지
 void socket_read_nonblocking() {
   // 연결 미존재 or 끊겼으면 통신 accept
-  if (!activeClient || !activeClient.connected()) {
+  if (!activeClient or !activeClient.connected()) {
     activeClient = wifiServer.available();
     if (activeClient) {
       activeClient.setNoDelay(true);
@@ -150,7 +150,7 @@ void socket_read_nonblocking() {
   if (activeClient && activeClient.connected()) {
     while (activeClient.available() > 0) {
       char c = activeClient.read();
-      if (c=='F' || c=='B' || c=='L' || c=='R' || c=='S') {
+      if (c=='F' or c=='B' or c=='L' or c=='R' or c=='S') {
         pendingCmd = c;
       }
     }
