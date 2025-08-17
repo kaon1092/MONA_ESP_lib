@@ -214,5 +214,5 @@ void update_state(){
 		state=0;
 	}
 
-	delay(5);
+	//delay(5);
 }
