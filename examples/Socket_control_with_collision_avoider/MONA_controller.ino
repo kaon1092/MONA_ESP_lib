@@ -198,7 +198,7 @@ void avoid_moving(){
       //Spin to the right
       Motors_spin_right(100);
     }
-    turn_until = now +250;
+    //turn_until = now +250;
   }
 }
 
