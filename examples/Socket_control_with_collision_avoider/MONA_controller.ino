@@ -43,12 +43,22 @@ WiFiClient activeClient;
 char pendingCmd = 0;             // 읽어둔 마지막 명령 저장
 unsigned long lastClientRX = 0; 
 
+// NonBlocking 명령 실행 상태 
+char active_cmd = 0;                 // 현재 실행 중 명령('F','B','L','R')
+int  cmd_speed = 0;                  // 현재 속도
+unsigned long cmd_deadline_ms = 0;   // 명령 종료 시각
+const unsigned long CMD_FWD_MS  = 1000;  // 필요 시 조정
+const unsigned long CMD_BACK_MS = 1000;
+const unsigned long CMD_TURN_MS = 500;
+
 // 함수 선언
 void read_IR_sensor();
 void update_state();
 void avoid_moving();
 void socket_read_nonblocking();
 void socket_control(char c);
+void run_active_cmd_tick();          
+void safe_stop();
 
 void setup() {
   //Initialize the MonaV2 robot
@@ -94,6 +104,11 @@ void setup() {
 
   pendingCmd = 0;
   lastClientRX = millis();
+
+  // 초기 명령 상태 리셋
+  active_cmd = 0;
+  cmd_speed = 0;
+  cmd_deadline_ms = 0;
 }
 
 void loop() {
@@ -108,6 +123,10 @@ void loop() {
   static bool was_obs = false;
 
   if (obs) {
+    // 회피 우선: 명령 수행 중이면 즉시 중단
+    if (active_cmd) {
+      safe_stop();
+    }
     // 장애물 O: 회피만 수행 (키 실행은 보류)
     avoid_moving();
   } else {
@@ -117,9 +136,16 @@ void loop() {
     }
     // 장애물 X : 저장된 키를 실행 (socket_read_nonblocking에서 저장된 값)
     if (pendingCmd) {
-      socket_control(pendingCmd);
+      socket_control(pendingCmd);  // 시작만 수행(지속/종료는 틱에서)
       pendingCmd = 0;   // 소진
     }
+    // 실행 중 명령 틱 유지/종료
+    run_active_cmd_tick();
+  }
+
+  // 입력 시간이 지났을 경우의 안전정지(네트워크 끊김 대비)
+  if (millis() - lastClientRX > 2000) {
+    safe_stop();
   }
 
   was_obs = obs;
@@ -128,28 +154,48 @@ void loop() {
 
 void socket_control(char c) {
   if(c=='F'){
-    Motors_forward(150);
-    delay(1000);
-    Motors_stop();
+    active_cmd = 'F';
+    cmd_speed = 150;
+    cmd_deadline_ms = millis() + CMD_FWD_MS;
+    Motors_forward(cmd_speed);
   }
   else if(c=='B'){
-    Motors_backward(150);
-    delay(1000);
-    Motors_stop();
+    active_cmd = 'B';
+    cmd_speed = 150;
+    cmd_deadline_ms = millis() + CMD_BACK_MS;
+    Motors_backward(cmd_speed);
   }
   else if(c=='R'){
-    Motors_spin_right(150);
-    delay(500);
-    Motors_stop();
+    active_cmd = 'R';
+    cmd_speed = 150;
+    cmd_deadline_ms = millis() + CMD_TURN_MS;
+    Motors_spin_right(cmd_speed);
   }
   else if(c=='L'){
-    Motors_spin_left(150);
-    delay(500);
-    Motors_stop();
+    active_cmd = 'L';
+    cmd_speed = 150;
+    cmd_deadline_ms = millis() + CMD_TURN_MS;
+    Motors_spin_left(cmd_speed);
   }
   else {
-    Motors_stop();
+    safe_stop();
   }
+}
+
+// 명령 지속/종료 틱 처리 및 실행 중 명령 틱 유지/종료(비블로킹)
+void run_active_cmd_tick() {
+  if (!active_cmd) return;
+  if (millis() > cmd_deadline_ms) {
+    safe_stop();
+  }
+}
+
+// MONA의 상태 리셋 포함
+void safe_stop() {
+  Motors_stop();
+  active_cmd = 0;
+  cmd_speed = 0;
+  cmd_deadline_ms = 0;
 }
 
 // 소켓 읽기만 수행 -> 통신 연결 유지
@@ -159,6 +205,7 @@ void socket_read_nonblocking() {
     activeClient = wifiServer.available();
     if (activeClient) {
       activeClient.setNoDelay(true);
+      lastClientRX = millis();  
     }
   }
 
@@ -167,7 +214,13 @@ void socket_read_nonblocking() {
     while (activeClient.available() > 0) {
       char c = activeClient.read();
       if (c=='F' or c=='B' or c=='L' or c=='R' or c=='S') {
-        pendingCmd = c;
+        lastClientRX = millis(); 
+        if (c=='S') {
+          safe_stop();           // 즉시정지 명령 추가
+          pendingCmd = 0;
+        } else {
+          pendingCmd = c;
+        }
       }
     }
   }
@@ -181,24 +234,26 @@ void avoid_moving(){
 
   if (now >= turn_until) {
     if(state == 0){
-      // Start moving Forward
-      //Motors_forward(150);
-      Motors_stop();
+      // Start moving Forward -> 원래 정지였지만, 정면 감지시 좌회전 유지로 바꾸었습니다.
+      Motors_spin_left(100);
+      turn_until = now + 150;   // 짧게 유지(비블로킹)
       return;
     }
     else if(state == 1){
-      //Spin to the left
+      //Spin to the left (전방 장애물 회피)
       Motors_spin_left(100);
+      turn_until = now + 150;  
     }
     else if(state == 2){
-      //Spin to the left
+      //Spin to the left (우측 근접 회피)
       Motors_spin_left(100);
+      turn_until = now + 150;
     }
     else if(state == 3){
-      //Spin to the right
+      //Spin to the right (좌측 근접 회피)
       Motors_spin_right(100);
+      turn_until = now + 150;
     }
-    turn_until = now +250;
   }
 }
 
